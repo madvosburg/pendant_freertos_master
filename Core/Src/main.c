@@ -212,7 +212,7 @@ int main(void)
 
   /* Create the semaphores(s) */
   /* creation of BinSem */
-  BinSemHandle = osSemaphoreNew(1, 0, &BinSem_attributes);
+  BinSemHandle = osSemaphoreNew(1, 1, &BinSem_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -506,7 +506,7 @@ void StartRead02(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	//  osSemaphoreAcquire(BinSemHandle, osWaitForever);		//wait for semaphore
+	  osSemaphoreAcquire(BinSemHandle, osWaitForever);		//wait for semaphore
 
 		//button logic
 		if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == 0)
@@ -553,8 +553,7 @@ void StartRead02(void *argument)
 			send_data();
 		}
 
-
-	//	  osSemaphoreRelease(BinSemHandle);		//release semaphore
+		  osSemaphoreRelease(BinSemHandle);		//release semaphore
   }
 
   osThreadTerminate(NULL);
@@ -600,16 +599,37 @@ void StartFlash03(void *argument)
   /* Infinite loop */
   for(;;)
   {
-//	  osSemaphoreAcquire(BinSemHandle, osWaitForever);		//wait for semaphore
+	  osSemaphoreAcquire(BinSemHandle, osWaitForever);		//wait for semaphore
 	  flash_write(RELAY1_ADDRESS, relay1_count, timer_flag, &hwwdg);
 	  flash_write(RELAY2_ADDRESS, relay2_count, timer_flag, &hwwdg);
 	  flash_write(RELAY3_ADDRESS, relay3_count, timer_flag, &hwwdg);
 	  flash_write(RELAY4_ADDRESS, relay4_count, timer_flag, &hwwdg);
 
 	  test = flash_read(RELAY1_ADDRESS);
-	//  osSemaphoreRelease(BinSemHandle);		//release semaphore
+	  osSemaphoreRelease(BinSemHandle);		//release semaphore
   }
   /* USER CODE END StartFlash03 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
 /**
