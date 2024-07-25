@@ -75,14 +75,26 @@ osThreadId_t read_pinsHandle;
 const osThreadAttr_t read_pins_attributes = {
   .name = "read_pins",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for watchdog */
 osThreadId_t watchdogHandle;
 const osThreadAttr_t watchdog_attributes = {
   .name = "watchdog",
   .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for flash */
+osThreadId_t flashHandle;
+const osThreadAttr_t flash_attributes = {
+  .name = "flash",
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
+};
+/* Definitions for BinSem */
+osSemaphoreId_t BinSemHandle;
+const osSemaphoreAttr_t BinSem_attributes = {
+  .name = "BinSem"
 };
 /* USER CODE BEGIN PV */
 
@@ -97,6 +109,7 @@ static void MX_WWDG_Init(void);
 static void MX_TIM16_Init(void);
 void StartRead02(void *argument);
 void StartWatchdog01(void *argument);
+void StartFlash03(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -115,6 +128,7 @@ uint32_t relay1_count = 0;
 uint32_t relay2_count = 0;
 uint32_t relay3_count = 0;
 uint32_t relay4_count = 0;
+uint32_t test = 0;
 
 //UART messages to communicate updates
 uint8_t relay1_msg[20] = "RELAY1 ON\n\r";
@@ -196,6 +210,10 @@ int main(void)
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* creation of BinSem */
+  BinSemHandle = osSemaphoreNew(1, 1, &BinSem_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -214,6 +232,9 @@ int main(void)
 
   /* creation of watchdog */
   watchdogHandle = osThreadNew(StartWatchdog01, NULL, &watchdog_attributes);
+
+  /* creation of flash */
+  flashHandle = osThreadNew(StartFlash03, NULL, &flash_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -485,6 +506,8 @@ void StartRead02(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  osSemaphoreAcquire(BinSemHandle, osWaitForever);		//wait for semaphore
+
 		//button logic
 		if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == 0)
 		{
@@ -529,6 +552,8 @@ void StartRead02(void *argument)
 			data = RELAY4_OFF;
 			send_data();
 		}
+
+		  osSemaphoreRelease(BinSemHandle);		//release semaphore
   }
 
   osThreadTerminate(NULL);
@@ -559,6 +584,52 @@ void StartWatchdog01(void *argument)
 
   osThreadTerminate(NULL);
   /* USER CODE END StartWatchdog01 */
+}
+
+/* USER CODE BEGIN Header_StartFlash03 */
+/**
+* @brief Function implementing the flash thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartFlash03 */
+void StartFlash03(void *argument)
+{
+  /* USER CODE BEGIN StartFlash03 */
+  /* Infinite loop */
+  for(;;)
+  {
+	  osSemaphoreAcquire(BinSemHandle, osWaitForever);		//wait for semaphore
+	  flash_write(RELAY1_ADDRESS, relay1_count, timer_flag, &hwwdg);
+	  flash_write(RELAY2_ADDRESS, relay2_count, timer_flag, &hwwdg);
+	  flash_write(RELAY3_ADDRESS, relay3_count, timer_flag, &hwwdg);
+	  flash_write(RELAY4_ADDRESS, relay4_count, timer_flag, &hwwdg);
+
+	  test = flash_read(RELAY1_ADDRESS);
+	  osSemaphoreRelease(BinSemHandle);		//release semaphore
+  }
+  /* USER CODE END StartFlash03 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
 /**
